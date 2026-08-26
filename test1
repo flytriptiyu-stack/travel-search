@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>旅遊方案搜尋與管理系統</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; }
+
+    .main-container { max-width: 900px; margin: 0 auto; width: 100%; padding: 2rem 1rem; }
+    h1 { text-align: center; margin-bottom: 2rem; font-size: 2rem; color: var(--primary); }
+
+    /* 按鈕與彈窗搜尋 */
+    .search-btn-group { display: flex; gap: 1rem; justify-content: center; margin-bottom: 2rem; }
+    .btn-main { padding: 1rem 2rem; font-size: 1.1rem; font-weight: 600; color: white; background-color: var(--primary); border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); }
+    .btn-main:hover { background-color: var(--primary-hover); transform: translateY(-2px); }
+
+    /* Modal 彈窗通用樣式 */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; padding: 2rem; border-radius: 16px; width: 90%; max-width: 450px; position: relative; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+    .close-modal { position: absolute; top: 1rem; right: 1.2rem; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); }
+    .modal h2 { margin-bottom: 1.5rem; font-size: 1.3rem; }
+
+    .form-group { margin-bottom: 1.2rem; }
+    .form-group label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-muted); }
+    .form-group select, .form-group input, .form-group textarea { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; outline: none; }
+    .form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: var(--primary); }
+
+    /* 方案卡片清單 */
+    .results-section { margin-top: 1rem; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .card-tags { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .tag { background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; }
+    .card-content { white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; color: #334155; background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #f1f5f9; }
+    
+    .btn-delete { background: var(--danger); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; float: right; font-size: 0.85rem; }
+    .btn-delete:hover { background: #dc2626; }
+
+    /* 頁尾管理員入口 */
+    footer { text-align: center; padding: 2rem; border-top: 1px solid var(--border); background: white; margin-top: auto; }
+    .admin-link { color: var(--text-muted); font-size: 0.85rem; text-decoration: none; cursor: pointer; }
+    .admin-link:hover { text-decoration: underline; color: var(--primary); }
+
+    /* 後台管理面板 */
+    #adminPanel { display: none; background: white; border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-top: 2rem; }
+  </style>
+</head>
+<body>
+
+  <div class="main-container">
+    <h1>✈️ 旅遊方案快速查詢</h1>
+
+    <!-- 搜尋主按鈕區 -->
+    <div class="search-btn-group">
+      <button class="btn-main" onclick="openSearchModal('location')">📍 我要找地點</button>
+      <button class="btn-main" onclick="openSearchModal('date')">📅 我要找日期</button>
+    </div>
+
+    <!-- 方案展示區 -->
+    <div class="results-section">
+      <h3 id="resultTitle" style="margin-bottom: 1rem; display:none;">查詢結果：</h3>
+      <div id="cardsContainer">
+        <p style="text-align: center; color: var(--text-muted);">請點擊上方按鈕選擇條件進行查詢</p>
+      </div>
+    </div>
+
+    <!-- 後台管理區（預設隱藏） -->
+    <div id="adminPanel">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>🛠️ 後台方案管理</h2>
+        <button onclick="logoutAdmin()" style="background:none; border:none; color:var(--danger); cursor:pointer;">登出管理員</button>
+      </div>
+
+      <form id="addForm" style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border);">
+        <h3>新增方案</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+          <div class="form-group">
+            <label>地點 (例如：石垣島)</label>
+            <input type="text" id="addLocation" required placeholder="請輸入目的地">
+          </div>
+          <div class="form-group">
+            <label>出發地 (例如：桃園/松山)</label>
+            <input type="text" id="addDeparture" required placeholder="請輸入出發機場/城市">
+          </div>
+          <div class="form-group">
+            <label>出發日期</label>
+            <input type="date" id="addDate" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>完整方案內容 (直接複製貼上整張促銷文案)</label>
+          <textarea id="addFullContent" rows="6" required placeholder="請在此貼上完整的方案文字..."></textarea>
+        </div>
+        <button type="submit" class="btn-main" style="width: 100%;">匯入方案</button>
+      </form>
+
+      <h3>目前所有方案列表（可點擊移除）</h3>
+      <div id="adminCardsContainer" style="margin-top: 1rem;"></div>
+    </div>
+  </div>
+
+  <!-- 搜尋 Modal 彈窗 -->
+  <div class="modal" id="searchModal">
+    <div class="modal-content">
+      <span class="close-modal" onclick="closeModal('searchModal')">&times;</span>
+      <h2 id="modalTitle">搜尋方案</h2>
+      
+      <div class="form-group">
+        <label>1. 請選擇出發地</label>
+        <select id="modalDepartureSelect" onchange="onDepartureChange()">
+          <option value="">-- 請先選擇出發地 --</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="secondaryGroup" style="display: none;">
+        <label id="secondaryLabel">2. 請選擇</label>
+        <select id="modalSecondarySelect">
+          <option value="">-- 請選擇 --</option>
+        </select>
+      </div>
+
+      <button class="btn-main" style="width: 100%; margin-top: 1rem;" onclick="executeSearch()">開始搜尋</button>
+    </div>
+  </div>
+
+  <!-- 管理員密碼認證 Modal -->
+  <div class="modal" id="adminAuthModal">
+    <div class="modal-content">
+      <span class="close-modal" onclick="closeModal('adminAuthModal')">&times;</span>
+      <h2>管理員登入</h2>
+      <div class="form-group">
+        <label>請輸入管理密碼</label>
+        <input type="password" id="adminPassword" placeholder="輸入密碼">
+      </div>
+      <button class="btn-main" style="width: 100%;" onclick="verifyAdmin()">驗證並進入</button>
+    </div>
+  </div>
+
+  <!-- 頁尾入口 -->
+  <footer>
+    <span class="admin-link" onclick="openAdminAuth()">🔐 管理員後台入口</span>
+  </footer>
+
+  <script>
+    const API_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+    let allProducts = [];
+    let currentSearchType = ""; // 'location' or 'date'
+
+    // 日期格式化工具：去除 ISO 時間字串尾巴 (T16:00:00.000Z)
+    function formatDate(rawDate) {
+      if (!rawDate) return "";
+      return String(rawDate).split("T")[0];
+    }
+
+    // 初始化讀取資料
+    async function loadData() {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        // 處理所有資料的日期格式
+        allProducts = data.map(item => ({
+          ...item,
+          date: formatDate(item.date)
+        }));
+      } catch (err) {
+        console.error("載入失敗", err);
+      }
+    }
+
+    // 開啟搜尋彈窗
+    function openSearchModal(type) {
+      currentSearchType = type;
+      document.getElementById("modalTitle").innerText = type === "location" ? "📍 依地點搜尋" : "📅 依日期搜尋";
+      document.getElementById("secondaryLabel").innerText = type === "location" ? "2. 請選擇目的地" : "2. 請選擇出發日期";
+      document.getElementById("secondaryGroup").style.display = "none";
+
+      const departures = [...new Set(allProducts.map(p => p.departure).filter(Boolean))];
+      const depSelect = document.getElementById("modalDepartureSelect");
+      depSelect.innerHTML = '<option value="">-- 請先選擇出發地 --</option>' + 
+        departures.map(d => `<option value="${d}">${d}</option>`).join("");
+
+      document.getElementById("searchModal").style.display = "flex";
+    }
+
+    // 當選擇出發地後，動態更新第二個下拉選單（地點或日期）
+    function onDepartureChange() {
+      const selectedDep = document.getElementById("modalDepartureSelect").value;
+      const secGroup = document.getElementById("secondaryGroup");
+      const secSelect = document.getElementById("modalSecondarySelect");
+
+      if (!selectedDep) {
+        secGroup.style.display = "none";
+        return;
+      }
+
+      const filtered = allProducts.filter(p => p.departure === selectedDep);
+
+      if (currentSearchType === "location") {
+        const locations = [...new Set(filtered.map(p => p.location).filter(Boolean))];
+        secSelect.innerHTML = '<option value="">-- 請選擇地點 --</option>' + 
+          locations.map(l => `<option value="${l}">${l}</option>`).join("");
+      } else {
+        const dates = [...new Set(filtered.map(p => formatDate(p.date)).filter(Boolean))];
+        secSelect.innerHTML = '<option value="">-- 請選擇日期 --</option>' + 
+          dates.map(d => `<option value="${d}">${d}</option>`).join("");
+      }
+
+      secGroup.style.display = "block";
+    }
+
+    // 執行搜尋並顯示卡片
+    function executeSearch() {
+      const dep = document.getElementById("modalDepartureSelect").value;
+      const sec = document.getElementById("modalSecondarySelect").value;
+
+      if (!dep || !sec) {
+        alert("請完整選擇搜尋條件！");
+        return;
+      }
+
+      const results = allProducts.filter(p => {
+        const cleanDate = formatDate(p.date);
+        if (currentSearchType === "location") {
+          return p.departure === dep && p.location === sec;
+        } else {
+          return p.departure === dep && cleanDate === sec;
+        }
+      });
+
+      renderCards(results, "cardsContainer", false);
+      document.getElementById("resultTitle").style.display = "block";
+      closeModal("searchModal");
+    }
+
+    // 渲染卡片 (僅呈現大文字內容)
+    function renderCards(list, containerId, isAdmin = false) {
+      const container = document.getElementById(containerId);
+      if (list.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-muted);">查無符合條件的方案。</p>';
+        return;
+      }
+
+      container.innerHTML = list.map(item => `
+        <div class="card">
+          <div class="card-tags">
+            <span class="tag">🛫 出發：${item.departure}</span>
+            <span class="tag">📍 地點：${item.location}</span>
+            <span class="tag">📅 日期：${formatDate(item.date)}</span>
+            ${isAdmin ? `<button class="btn-delete" onclick="deleteProduct('${item.id}')">刪除/移除</button>` : ''}
+          </div>
+          <div class="card-content">${escapeHtml(item.fullContent)}</div>
+        </div>
+      `).join("");
+    }
+
+    // 管理員認證
+    function openAdminAuth() {
+      document.getElementById("adminAuthModal").style.display = "flex";
+    }
+
+    function verifyAdmin() {
+      const pwd = document.getElementById("adminPassword").value;
+      if (pwd === "5666") {
+        closeModal("adminAuthModal");
+        document.getElementById("adminPanel").style.display = "block";
+        document.getElementById("adminPassword").value = "";
+        renderCards(allProducts, "adminCardsContainer", true);
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      } else {
+        alert("密碼錯誤！");
+      }
+    }
+
+    function logoutAdmin() {
+      document.getElementById("adminPanel").style.display = "none";
+    }
+
+    // 新增方案 (POST)
+    document.getElementById("addForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {
+        id: new Date().getTime().toString(),
+        location: document.getElementById("addLocation").value,
+        departure: document.getElementById("addDeparture").value,
+        date: document.getElementById("addDate").value,
+        fullContent: document.getElementById("addFullContent").value,
+        status: "active"
+      };
+
+      try {
+        await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+        alert("方案匯入成功！");
+        document.getElementById("addForm").reset();
+        await loadData();
+        renderCards(allProducts, "adminCardsContainer", true);
+      } catch (err) {
+        alert("匯入失敗：" + err);
+      }
+    });
+
+    // 刪除方案 (POST delete action)
+    async function deleteProduct(id) {
+      if (!confirm("確定要移除此方案嗎？")) return;
+      try {
+        await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "delete", id: id }) });
+        alert("方案已移除！");
+        await loadData();
+        renderCards(allProducts, "adminCardsContainer", true);
+      } catch (err) {
+        alert("移除失敗：" + err);
+      }
+    }
+
+    // 工具函式：關閉 Modal / HTML 轉譯
+    function closeModal(id) { document.getElementById(id).style.display = "none"; }
+    function escapeHtml(str) { return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>"); }
+
+    window.onload = loadData;
+  </script>
+</body>
+</html>
