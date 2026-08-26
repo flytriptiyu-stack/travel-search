@@ -76,7 +76,7 @@
       </div>
     </div>
 
-    <!-- 後台管理區（預設隱藏） -->
+    <!-- 後台管理區 -->
     <div id="adminPanel">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h2>🛠️ 後台方案管理</h2>
@@ -87,21 +87,21 @@
         <h3>新增方案</h3>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
           <div class="form-group">
-            <label>地點 (例如：石垣島)</label>
+            <label>地點 (例如：東京)</label>
             <input type="text" id="addLocation" required placeholder="請輸入目的地">
           </div>
           <div class="form-group">
-            <label>出發地 (例如：桃園/松山)</label>
-            <input type="text" id="addDeparture" required placeholder="請輸入出發機場/城市">
+            <label>出發地 (例如：桃園)</label>
+            <input type="text" id="addDeparture" required placeholder="例如：桃園、松山">
           </div>
           <div class="form-group">
-            <label>出發日期</label>
-            <input type="date" id="addDate" required>
+            <label>出發日期 (可填多個，用半形逗號分隔)</label>
+            <input type="text" id="addDate" required placeholder="如：2026-08-28, 2026-08-29, 2026-08-31">
           </div>
         </div>
         <div class="form-group">
-          <label>完整方案內容 (直接複製貼上整張促銷文案)</label>
-          <textarea id="addFullContent" rows="6" required placeholder="請在此貼上完整的方案文字..."></textarea>
+          <label>完整方案內容 (直接貼上促銷文案)</label>
+          <textarea id="addFullContent" rows="6" required placeholder="請在此貼上完整的促銷文案..."></textarea>
         </div>
         <button type="submit" class="btn-main" style="width: 100%;">匯入方案</button>
       </form>
@@ -135,7 +135,7 @@
     </div>
   </div>
 
-  <!-- 管理員密碼認證 Modal -->
+  <!-- 管理員認證 Modal -->
   <div class="modal" id="adminAuthModal">
     <div class="modal-content">
       <span class="close-modal" onclick="closeModal('adminAuthModal')">&times;</span>
@@ -154,25 +154,27 @@
   </footer>
 
   <script>
-    const API_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+    const API_URL = "https://script.google.com/macros/s/AKfycbxkNO_gPJooz6uzNopMGWSV4eGWJflesMm_VKy8hBI-eHxz7SdfvhB6xVBbmYJIIAgJBw/exec";
     let allProducts = [];
-    let currentSearchType = ""; // 'location' or 'date'
+    let currentSearchType = ""; 
 
-    // 日期格式化工具：清理 ISO 字串 (T16:00:00.000Z) 只留 YYYY-MM-DD
-    function formatDate(rawDate) {
-      if (!rawDate) return "";
-      return String(rawDate).split("T")[0];
+    // 將包含多日期的字串解析為乾淨的日期陣列 [YYYY-MM-DD]
+    function parseDateList(rawDateStr) {
+      if (!rawDateStr) return [];
+      return String(rawDateStr)
+        .split(/[,，\n]/) // 支援英文逗點、中文逗點與換行分隔
+        .map(d => d.trim().split("T")[0])
+        .filter(Boolean);
     }
 
-    // 初始化讀取資料
+    // 載入資料
     async function loadData() {
       try {
         const res = await fetch(API_URL);
         const data = await res.json();
-        // 確保每個資料項目的日期格式都是乾淨的
         allProducts = data.map(item => ({
           ...item,
-          date: formatDate(item.date)
+          dates: parseDateList(item.date) // 轉為陣列處理
         }));
       } catch (err) {
         console.error("載入失敗", err);
@@ -194,7 +196,7 @@
       document.getElementById("searchModal").style.display = "flex";
     }
 
-    // 當選擇出發地後，動態更新第二個下拉選單（地點或日期）
+    // 出發地選擇變更時，展開第二選項
     function onDepartureChange() {
       const selectedDep = document.getElementById("modalDepartureSelect").value;
       const secGroup = document.getElementById("secondaryGroup");
@@ -212,7 +214,8 @@
         secSelect.innerHTML = '<option value="">-- 請選擇地點 --</option>' + 
           locations.map(l => `<option value="${l}">${l}</option>`).join("");
       } else {
-        const dates = [...new Set(filtered.map(p => formatDate(p.date)).filter(Boolean))];
+        // 攤平所有日期並排序
+        const dates = [...new Set(filtered.flatMap(p => p.dates))].sort();
         secSelect.innerHTML = '<option value="">-- 請選擇日期 --</option>' + 
           dates.map(d => `<option value="${d}">${d}</option>`).join("");
       }
@@ -220,7 +223,7 @@
       secGroup.style.display = "block";
     }
 
-    // 執行搜尋並顯示卡片
+    // 執行搜尋
     function executeSearch() {
       const dep = document.getElementById("modalDepartureSelect").value;
       const sec = document.getElementById("modalSecondarySelect").value;
@@ -231,11 +234,10 @@
       }
 
       const results = allProducts.filter(p => {
-        const cleanDate = formatDate(p.date);
         if (currentSearchType === "location") {
           return p.departure === dep && p.location === sec;
         } else {
-          return p.departure === dep && cleanDate === sec;
+          return p.departure === dep && p.dates.includes(sec);
         }
       });
 
@@ -244,7 +246,7 @@
       closeModal("searchModal");
     }
 
-    // 渲染卡片 (僅呈現大文字內容)
+    // 渲染卡片
     function renderCards(list, containerId, isAdmin = false) {
       const container = document.getElementById(containerId);
       if (list.length === 0) {
@@ -257,7 +259,7 @@
           <div class="card-tags">
             <span class="tag">🛫 出發：${item.departure}</span>
             <span class="tag">📍 地點：${item.location}</span>
-            <span class="tag">📅 日期：${formatDate(item.date)}</span>
+            <span class="tag">📅 日期：${item.dates.join(", ")}</span>
             ${isAdmin ? `<button class="btn-delete" onclick="deleteProduct('${item.id}')">刪除/移除</button>` : ''}
           </div>
           <div class="card-content">${escapeHtml(item.fullContent)}</div>
@@ -265,14 +267,11 @@
       `).join("");
     }
 
-    // 管理員認證
-    function openAdminAuth() {
-      document.getElementById("adminAuthModal").style.display = "flex";
-    }
-
+    // 管理員驗證
+    function openAdminAuth() { document.getElementById("adminAuthModal").style.display = "flex"; }
     function verifyAdmin() {
       const pwd = document.getElementById("adminPassword").value;
-      if (pwd === "5666") {
+      if (pwd === "5666") { // 🔑 密碼在此處修改
         closeModal("adminAuthModal");
         document.getElementById("adminPanel").style.display = "block";
         document.getElementById("adminPassword").value = "";
@@ -283,11 +282,9 @@
       }
     }
 
-    function logoutAdmin() {
-      document.getElementById("adminPanel").style.display = "none";
-    }
+    function logoutAdmin() { document.getElementById("adminPanel").style.display = "none"; }
 
-    // 新增方案 (POST)
+    // 新增方案
     document.getElementById("addForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -298,7 +295,7 @@
         id: new Date().getTime().toString(),
         location: document.getElementById("addLocation").value,
         departure: document.getElementById("addDeparture").value,
-        date: document.getElementById("addDate").value,
+        date: document.getElementById("addDate").value, // 可輸入 multiple dates
         fullContent: document.getElementById("addFullContent").value,
         status: "active"
       };
@@ -308,7 +305,6 @@
         alert("方案匯入成功！");
         document.getElementById("addForm").reset();
         
-        // 新增成功後自動重新讀取資料，確保搜尋選單與後台列表同步
         await loadData();
         renderCards(allProducts, "adminCardsContainer", true);
       } catch (err) {
@@ -319,7 +315,7 @@
       }
     });
 
-    // 刪除方案 (POST delete action)
+    // 刪除方案
     async function deleteProduct(id) {
       if (!confirm("確定要移除此方案嗎？")) return;
       try {
@@ -332,7 +328,6 @@
       }
     }
 
-    // 工具函式：關閉 Modal / HTML 轉譯
     function closeModal(id) { document.getElementById(id).style.display = "none"; }
     function escapeHtml(str) { return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>"); }
 
