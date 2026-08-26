@@ -14,6 +14,7 @@
       --text-muted: #64748b;
       --border: #e2e8f0;
       --danger: #ef4444;
+      --success: #10b981;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -26,6 +27,8 @@
     .search-btn-group { display: flex; gap: 1rem; justify-content: center; margin-bottom: 2rem; }
     .btn-main { padding: 1rem 2rem; font-size: 1.1rem; font-weight: 600; color: white; background-color: var(--primary); border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); }
     .btn-main:hover { background-color: var(--primary-hover); transform: translateY(-2px); }
+    .btn-parse { background-color: var(--success); margin-top: 0.5rem; margin-bottom: 1.5rem; }
+    .btn-parse:hover { background-color: #059669; }
 
     /* Modal 彈窗通用樣式 */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; z-index: 1000; }
@@ -85,25 +88,33 @@
 
       <form id="addForm" style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border);">
         <h3>新增方案</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+        
+        <!-- 自動解析輸入區 -->
+        <div class="form-group" style="margin-top: 1rem; background: #f0fdf4; padding: 1rem; border-radius: 8px; border: 1px solid #bbf7d0;">
+          <label style="color: #166534; font-weight:bold;">⚡ 快速文字自動提取（直接貼上整篇文案）：</label>
+          <textarea id="rawTextImport" rows="5" placeholder="貼上文案後，點擊下方「自動解析內容」按鈕..."></textarea>
+          <button type="button" class="btn-main btn-parse" onclick="autoParseContent()">⚡ 自動解析內容與日期年份</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
           <div class="form-group">
-            <label>地點 (例如：東京)</label>
+            <label>地點 (例如：北九州)</label>
             <input type="text" id="addLocation" required placeholder="請輸入目的地">
           </div>
           <div class="form-group">
-            <label>出發地 (例如：桃園)</label>
-            <input type="text" id="addDeparture" required placeholder="例如：桃園、松山">
+            <label>出發地 (例如：台中/桃園)</label>
+            <input type="text" id="addDeparture" required placeholder="例如：台中、桃園">
           </div>
           <div class="form-group">
-            <label>出發日期 (可填多個，用半形逗號分隔)</label>
-            <input type="text" id="addDate" required placeholder="如：2026-08-28, 2026-08-29, 2026-08-31">
+            <label>出發日期 (自動提取轉換後結果)</label>
+            <input type="text" id="addDate" required placeholder="如：2026-09-06, 2026-09-08">
           </div>
         </div>
         <div class="form-group">
-          <label>完整方案內容 (直接貼上促銷文案)</label>
-          <textarea id="addFullContent" rows="6" required placeholder="請在此貼上完整的促銷文案..."></textarea>
+          <label>完整方案內容</label>
+          <textarea id="addFullContent" rows="6" required placeholder="完整方案內容..."></textarea>
         </div>
-        <button type="submit" class="btn-main" style="width: 100%;">匯入方案</button>
+        <button type="submit" class="btn-main" style="width: 100%;">確定匯入方案</button>
       </form>
 
       <h3>目前所有方案列表（可點擊移除）</h3>
@@ -158,11 +169,62 @@
     let allProducts = [];
     let currentSearchType = ""; 
 
-    // 將包含多日期的字串解析為乾淨的日期陣列 [YYYY-MM-DD]
+    // 自動解析文字與日期邏輯
+    function autoParseContent() {
+      const rawText = document.getElementById("rawTextImport").value;
+      if (!rawText.trim()) {
+        alert("請先貼上文案內容！");
+        return;
+      }
+
+      // 1. 自動填入完整內容
+      document.getElementById("addFullContent").value = rawText;
+
+      // 2. 判斷出發地 (匹配 桃園/台中/高雄/松山 等)
+      const depMatch = rawText.match(/(桃園|台中|高雄|松山|台北)/);
+      if (depMatch) {
+        document.getElementById("addDeparture").value = depMatch[1];
+      }
+
+      // 3. 判斷地點 (匹配 地名)
+      const locMatch = rawText.match(/(北九州|東京|石垣島|大阪|沖繩|京都|北海道|福岡|首爾|釜山)/);
+      if (locMatch) {
+        document.getElementById("addLocation").value = locMatch[1];
+      }
+
+      // 4. 正規表示式提取月/日 (例如: 9/06、9/8、10/02、8/28)
+      const dateRegex = /(1[0-2]|0?[1-9])\/([0-3]?[0-9])/g;
+      let match;
+      const parsedDates = new Set();
+
+      while ((match = dateRegex.exec(rawText)) !== null) {
+        let month = parseInt(match[1], 10);
+        let day = parseInt(match[2], 10);
+
+        // 規則：月份 < 8 自動判斷為 2027 年，其餘為 2026 年
+        let year = (month < 8) ? 2027 : 2026;
+
+        // 格式化為 YYYY-MM-DD
+        let formattedMonth = String(month).padStart(2, '0');
+        let formattedDay = String(day).padStart(2, '0');
+        
+        parsedDates.add(`${year}-${formattedMonth}-${formattedDay}`);
+      }
+
+      if (parsedDates.size > 0) {
+        const dateArray = Array.from(parsedDates);
+        document.getElementById("addDate").value = dateArray.join(", ");
+        alert(`解析成功！共提取出 ${dateArray.length} 個日期。`);
+      } else {
+        alert("未成功自動偵測到日期，請手動確認與填寫。");
+      }
+    }
+
+    // 解析字串中的日期陣列
     function parseDateList(rawDateStr) {
       if (!rawDateStr) return [];
       return String(rawDateStr)
-        .split(/[,，\n]/) // 支援英文逗點、中文逗點與換行分隔
+        .split(/[,，\n]/)
         .map(d => d.trim().split("T")[0])
         .filter(Boolean);
     }
@@ -174,7 +236,7 @@
         const data = await res.json();
         allProducts = data.map(item => ({
           ...item,
-          dates: parseDateList(item.date) // 轉為陣列處理
+          dates: parseDateList(item.date)
         }));
       } catch (err) {
         console.error("載入失敗", err);
@@ -214,7 +276,6 @@
         secSelect.innerHTML = '<option value="">-- 請選擇地點 --</option>' + 
           locations.map(l => `<option value="${l}">${l}</option>`).join("");
       } else {
-        // 攤平所有日期並排序
         const dates = [...new Set(filtered.flatMap(p => p.dates))].sort();
         secSelect.innerHTML = '<option value="">-- 請選擇日期 --</option>' + 
           dates.map(d => `<option value="${d}">${d}</option>`).join("");
@@ -271,7 +332,7 @@
     function openAdminAuth() { document.getElementById("adminAuthModal").style.display = "flex"; }
     function verifyAdmin() {
       const pwd = document.getElementById("adminPassword").value;
-      if (pwd === "5666") { // 🔑 密碼在此處修改
+      if (pwd === "5666") { 
         closeModal("adminAuthModal");
         document.getElementById("adminPanel").style.display = "block";
         document.getElementById("adminPassword").value = "";
@@ -295,7 +356,7 @@
         id: new Date().getTime().toString(),
         location: document.getElementById("addLocation").value,
         departure: document.getElementById("addDeparture").value,
-        date: document.getElementById("addDate").value, // 可輸入 multiple dates
+        date: document.getElementById("addDate").value,
         fullContent: document.getElementById("addFullContent").value,
         status: "active"
       };
@@ -304,6 +365,7 @@
         await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
         alert("方案匯入成功！");
         document.getElementById("addForm").reset();
+        document.getElementById("rawTextImport").value = "";
         
         await loadData();
         renderCards(allProducts, "adminCardsContainer", true);
@@ -311,7 +373,7 @@
         alert("匯入失敗：" + err);
       } finally {
         submitBtn.disabled = false;
-        submitBtn.innerText = "匯入方案";
+        submitBtn.innerText = "確定匯入方案";
       }
     });
 
