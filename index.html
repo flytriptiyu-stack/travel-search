@@ -158,7 +158,7 @@
     let allProducts = [];
     let currentSearchType = ""; // 'location' or 'date'
 
-    // 日期格式化工具：去除 ISO 時間字串尾巴 (T16:00:00.000Z)
+    // 日期格式化工具：清理 ISO 字串 (T16:00:00.000Z) 只留 YYYY-MM-DD
     function formatDate(rawDate) {
       if (!rawDate) return "";
       return String(rawDate).split("T")[0];
@@ -169,7 +169,7 @@
       try {
         const res = await fetch(API_URL);
         const data = await res.json();
-        // 處理所有資料的日期格式
+        // 確保每個資料項目的日期格式都是乾淨的
         allProducts = data.map(item => ({
           ...item,
           date: formatDate(item.date)
@@ -290,6 +290,10 @@
     // 新增方案 (POST)
     document.getElementById("addForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.innerText = "匯入中...";
+
       const payload = {
         id: new Date().getTime().toString(),
         location: document.getElementById("addLocation").value,
@@ -303,10 +307,15 @@
         await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
         alert("方案匯入成功！");
         document.getElementById("addForm").reset();
+        
+        // 新增成功後自動重新讀取資料，確保搜尋選單與後台列表同步
         await loadData();
         renderCards(allProducts, "adminCardsContainer", true);
       } catch (err) {
         alert("匯入失敗：" + err);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = "匯入方案";
       }
     });
 
@@ -331,4 +340,3 @@
   </script>
 </body>
 </html>
-
