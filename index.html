@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>旅遊方案搜尋與管理系統</title>
   <style>
     :root {
@@ -15,49 +15,164 @@
       --border: #e2e8f0;
       --danger: #ef4444;
       --success: #10b981;
+      --accent-red: #dc2626;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; }
 
-    .main-container { max-width: 900px; margin: 0 auto; width: 100%; padding: 2rem 1rem; }
-    h1 { text-align: center; margin-bottom: 2rem; font-size: 2rem; color: var(--primary); }
+    /* 容器：電腦版上限 900px，手機版滿版 */
+    .main-container { max-width: 900px; margin: 0 auto; width: 100%; padding: 1.5rem 1rem; }
+    h1 { text-align: center; margin-bottom: 1.5rem; font-size: 1.8rem; color: var(--primary); }
 
-    /* 按鈕與彈窗搜尋 */
-    .search-btn-group { display: flex; gap: 1rem; justify-content: center; margin-bottom: 2rem; }
-    .btn-main { padding: 1rem 2rem; font-size: 1.1rem; font-weight: 600; color: white; background-color: var(--primary); border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); }
+    /* 搜尋按鈕區：電腦橫排、手機直排或均分 */
+    .search-btn-group { display: flex; gap: 1rem; justify-content: center; margin-bottom: 2rem; flex-wrap: wrap; }
+    .btn-main { padding: 0.9rem 1.5rem; font-size: 1rem; font-weight: 600; color: white; background-color: var(--primary); border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); }
     .btn-main:hover { background-color: var(--primary-hover); transform: translateY(-2px); }
-    .btn-parse { background-color: var(--success); margin-top: 0.5rem; margin-bottom: 1.5rem; }
+    .btn-parse { background-color: var(--success); margin-top: 0.5rem; margin-bottom: 0.5rem; }
     .btn-parse:hover { background-color: #059669; }
 
-    /* Modal 彈窗通用樣式 */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; padding: 2rem; border-radius: 16px; width: 90%; max-width: 450px; position: relative; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
-    .close-modal { position: absolute; top: 1rem; right: 1.2rem; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); }
-    .modal h2 { margin-bottom: 1.5rem; font-size: 1.3rem; }
+    /* 1. 查詢結果區域 */
+    .results-section { margin-bottom: 2.5rem; }
 
-    .form-group { margin-bottom: 1.2rem; }
-    .form-group label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-muted); }
-    .form-group select, .form-group input, .form-group textarea { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; outline: none; }
+    /* 2. 輪播區域樣式 */
+    .carousel-section {
+      background: linear-gradient(135deg, #fff5f5 0%, #fff 100%);
+      border: 2px solid #fca5a5;
+      border-radius: 16px;
+      padding: 1.25rem;
+      margin-bottom: 2.5rem;
+      box-shadow: 0 10px 15px -3px rgba(220, 38, 38, 0.1);
+    }
+    .carousel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .carousel-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--accent-red);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .carousel-title::before { content: "🔥"; }
+    
+    .carousel-wrapper {
+      overflow: hidden;
+      width: 100%;
+      border-radius: 12px;
+      touch-action: pan-y; /* 支援手機滑動 Touch 事件 */
+    }
+    .carousel-track {
+      display: flex;
+      transition: transform 0.4s ease-in-out;
+      width: 100%;
+    }
+    .carousel-slide {
+      min-width: 100%;
+      box-sizing: border-box;
+      cursor: pointer;
+    }
+    .carousel-card {
+      background: white;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      padding: 1rem;
+      position: relative;
+    }
+    .pause-badge {
+      position: absolute;
+      top: 0.8rem;
+      right: 0.8rem;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      display: none;
+    }
+    .carousel-slide.paused .pause-badge { display: block; }
+
+    .carousel-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 1rem;
+    }
+    .carousel-btn {
+      background: #fee2e2;
+      color: var(--accent-red);
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .carousel-btn:hover { background: #fca5a5; }
+    .carousel-dots { display: flex; gap: 0.4rem; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #fca5a5; cursor: pointer; }
+    .dot.active { background: var(--accent-red); width: 16px; border-radius: 4px; }
+
+    /* Modal 視窗彈出樣式 */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; z-index: 1000; padding: 1rem; }
+    .modal-content { background: white; padding: 1.5rem; border-radius: 16px; width: 100%; max-width: 450px; position: relative; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+    .close-modal { position: absolute; top: 1rem; right: 1.2rem; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); }
+    .modal h2 { margin-bottom: 1.2rem; font-size: 1.25rem; }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-muted); }
+    .form-group select, .form-group input, .form-group textarea { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; outline: none; background: white; }
     .form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: var(--primary); }
 
-    /* 方案卡片清單 */
-    .results-section { margin-top: 1rem; }
-    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-    .card-tags { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
-    .tag { background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.6rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; }
-    .card-content { white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; color: #334155; background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #f1f5f9; }
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent-red); cursor: pointer; }
+    .checkbox-group label { margin: 0; color: var(--accent-red); font-weight: bold; cursor: pointer; font-size: 0.9rem; }
+
+    /* 卡片與內容列表 */
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .card-tags { display: flex; gap: 0.4rem; margin-bottom: 0.8rem; flex-wrap: wrap; align-items: center; }
+    .tag { background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; }
+    .tag-featured { background: #fee2e2; color: #991b1b; }
+    .card-content { white-space: pre-wrap; font-size: 0.9rem; line-height: 1.6; color: #334155; background: #f8fafc; padding: 0.8rem; border-radius: 8px; border: 1px solid #f1f5f9; word-break: break-all; }
     
-    .btn-delete { background: var(--danger); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; float: right; font-size: 0.85rem; }
+    .btn-delete { background: var(--danger); color: white; border: none; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
     .btn-delete:hover { background: #dc2626; }
 
-    /* 頁尾管理員入口 */
-    footer { text-align: center; padding: 2rem; border-top: 1px solid var(--border); background: white; margin-top: auto; }
-    .admin-link { color: var(--text-muted); font-size: 0.85rem; text-decoration: none; cursor: pointer; }
-    .admin-link:hover { text-decoration: underline; color: var(--primary); }
+    .admin-toggle-featured { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; font-weight: bold; color: var(--accent-red); margin-left: auto; }
+    .admin-toggle-featured input { accent-color: var(--accent-red); width: 16px; height: 16px; cursor: pointer; }
 
-    /* 後台管理面板 */
-    #adminPanel { display: none; background: white; border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-top: 2rem; }
+    footer { text-align: center; padding: 1.2rem; border-top: 1px solid var(--border); background: white; margin-top: auto; }
+    .admin-link { color: #cbd5e1; font-size: 0.75rem; text-decoration: none; cursor: pointer; user-select: none; }
+    .admin-link:hover { color: #94a3b8; }
+
+    #adminPanel { display: none; background: white; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-top: 2rem; }
+
+    /* 📱 手機版專屬優化 (Media Queries) */
+    @media (max-width: 640px) {
+      .main-container { padding: 1rem 0.75rem; }
+      h1 { font-size: 1.5rem; }
+      
+      .search-btn-group { flex-direction: column; width: 100%; gap: 0.75rem; }
+      .btn-main { width: 100%; text-align: center; padding: 1rem; }
+      
+      .carousel-header { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+      .carousel-card { padding: 0.8rem; }
+      .card { padding: 1rem; }
+      
+      .admin-toggle-featured { margin-left: 0; width: 100%; margin-top: 0.5rem; justify-content: flex-end; }
+    }
   </style>
 </head>
 <body>
@@ -65,64 +180,86 @@
   <div class="main-container">
     <h1>✈️ 旅遊方案快速查詢</h1>
 
-    <!-- 搜尋主按鈕區 -->
     <div class="search-btn-group">
       <button class="btn-main" onclick="openSearchModal('location')">📍 我要找地點</button>
       <button class="btn-main" onclick="openSearchModal('date')">📅 我要找日期</button>
     </div>
 
-    <!-- 方案展示區 -->
+    <!-- 1. 查詢結果區域 (顯示在輪播上方) -->
     <div class="results-section">
-      <h3 id="resultTitle" style="margin-bottom: 1rem; display:none;">查詢結果：</h3>
+      <h3 id="resultTitle" style="margin-bottom: 1rem; display:none; color: var(--primary);">🔍 查詢結果：</h3>
       <div id="cardsContainer">
-        <p style="text-align: center; color: var(--text-muted);">請點擊上方按鈕選擇條件進行查詢</p>
+        <p style="text-align: center; color: var(--text-muted); font-size: 0.95rem;">請點擊上方按鈕選擇條件進行查詢</p>
       </div>
     </div>
 
-    <!-- 後台管理區 -->
+    <!-- 2. 輪播區域 (急票出清 最殺價格) -->
+    <div class="carousel-section" id="carouselSection" style="display: none;">
+      <div class="carousel-header">
+        <div class="carousel-title">急票出清 最殺價格</div>
+        <span style="font-size: 0.8rem; color: #991b1b; font-weight: 600;">點擊卡片可暫停/繼續</span>
+      </div>
+      
+      <div class="carousel-wrapper" id="carouselWrapper">
+        <div class="carousel-track" id="carouselTrack"></div>
+      </div>
+
+      <div class="carousel-controls">
+        <button class="carousel-btn" onclick="prevCarousel()">❮ 上一張</button>
+        <div class="carousel-dots" id="carouselDots"></div>
+        <button class="carousel-btn" onclick="nextCarousel()">下一張 ❯</button>
+      </div>
+    </div>
+
+    <!-- 3. 後台管理區 -->
     <div id="adminPanel">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h2>🛠️ 後台方案管理</h2>
-        <button onclick="logoutAdmin()" style="background:none; border:none; color:var(--danger); cursor:pointer;">登出管理員</button>
+        <button onclick="logoutAdmin()" style="background:none; border:none; color:var(--danger); cursor:pointer; font-weight:bold;">登出</button>
       </div>
 
-      <form id="addForm" style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border);">
-        <h3>新增方案</h3>
+      <form id="addForm" style="margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border);">
+        <h3 style="font-size:1.1rem; margin-bottom: 0.8rem;">新增方案</h3>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="addIsFeatured">
+          <label for="addIsFeatured">🔥 直接置入中間輪播位置 (急票出清 最殺價格)</label>
+        </div>
         
-        <!-- 自動解析輸入區 -->
-        <div class="form-group" style="margin-top: 1rem; background: #f0fdf4; padding: 1rem; border-radius: 8px; border: 1px solid #bbf7d0;">
+        <!-- 自動提取區域目標框 -->
+        <div id="extractBoxArea" class="form-group" style="background: #f0fdf4; padding: 1rem; border-radius: 8px; border: 1px solid #bbf7d0;">
           <label style="color: #166534; font-weight:bold;">⚡ 快速文字自動提取（直接貼上整篇文案）：</label>
-          <textarea id="rawTextImport" rows="5" placeholder="貼上文案後，點擊下方「自動解析內容」按鈕..."></textarea>
-          <button type="button" class="btn-main btn-parse" onclick="autoParseContent()">⚡ 自動解析內容與日期年份</button>
+          <textarea id="rawTextImport" rows="4" placeholder="貼上文案後，點擊下方「自動解析內容」按鈕..."></textarea>
+          <button type="button" class="btn-main btn-parse" style="width:100%;" onclick="autoParseContent()">⚡ 自動解析內容與日期年份</button>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem;">
           <div class="form-group">
-            <label>地點 (例如：北九州)</label>
+            <label>地點 (如：北九州)</label>
             <input type="text" id="addLocation" required placeholder="請輸入目的地">
           </div>
           <div class="form-group">
-            <label>出發地 (例如：台中/桃園)</label>
+            <label>出發地 (如：台中/桃園)</label>
             <input type="text" id="addDeparture" required placeholder="例如：台中、桃園">
           </div>
           <div class="form-group">
-            <label>出發日期 (自動提取轉換後結果)</label>
+            <label>出發日期 (自動轉換結果)</label>
             <input type="text" id="addDate" required placeholder="如：2026-09-06, 2026-09-08">
           </div>
         </div>
         <div class="form-group">
           <label>完整方案內容</label>
-          <textarea id="addFullContent" rows="6" required placeholder="完整方案內容..."></textarea>
+          <textarea id="addFullContent" rows="5" required placeholder="完整方案內容..."></textarea>
         </div>
         <button type="submit" class="btn-main" style="width: 100%;">確定匯入方案</button>
       </form>
 
-      <h3>目前所有方案列表（可點擊移除）</h3>
-      <div id="adminCardsContainer" style="margin-top: 1rem;"></div>
+      <h3 style="font-size:1.1rem; margin-bottom: 0.8rem;">目前所有方案列表（可勾選切換輪播）</h3>
+      <div id="adminCardsContainer"></div>
     </div>
   </div>
 
-  <!-- 搜尋 Modal 彈窗 -->
+  <!-- 搜尋 Modal -->
   <div class="modal" id="searchModal">
     <div class="modal-content">
       <span class="close-modal" onclick="closeModal('searchModal')">&times;</span>
@@ -150,26 +287,156 @@
   <div class="modal" id="adminAuthModal">
     <div class="modal-content">
       <span class="close-modal" onclick="closeModal('adminAuthModal')">&times;</span>
-      <h2>管理員登入</h2>
+      <h2>系統驗證</h2>
       <div class="form-group">
-        <label>請輸入管理密碼</label>
-        <input type="password" id="adminPassword" placeholder="輸入密碼">
+        <label>請輸入存取密碼</label>
+        <input type="password" id="adminPassword" placeholder="密碼">
       </div>
-      <button class="btn-main" style="width: 100%;" onclick="verifyAdmin()">驗證並進入</button>
+      <button class="btn-main" style="width: 100%;" onclick="verifyAdmin()">驗證</button>
     </div>
   </div>
 
-  <!-- 頁尾入口 -->
   <footer>
-    <span class="admin-link" onclick="openAdminAuth()">🔐 管理員後台入口</span>
+    <span class="admin-link" onclick="openAdminAuth()">© 2026 System Status: Normal</span>
   </footer>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbxkNO_gPJooz6uzNopMGWSV4eGWJflesMm_VKy8hBI-eHxz7SdfvhB6xVBbmYJIIAgJBw/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbyVszursrPHmWTGaXa8BMpWf4_bwtorTi8k_V4S2s6wkBRCnUS-6PFAhj2gb6ULgsBR/exec";
+    
     let allProducts = [];
     let currentSearchType = ""; 
+    let carouselIndex = 0;
+    let carouselTimer = null;
+    let isPaused = false;
 
-    // 自動解析文字與日期邏輯
+    // 手機觸控滑動支援變數
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    function parseDateList(rawDateStr) {
+      if (!rawDateStr) return [];
+      return String(rawDateStr).split(/[,，\n]/).map(d => d.trim().split("T")[0]).filter(Boolean);
+    }
+
+    async function loadData() {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        allProducts = data.map(item => ({
+          ...item,
+          dates: parseDateList(item.date),
+          isFeatured: item.isFeatured === true || item.isFeatured === "true" || item.isFeatured === 1
+        }));
+        renderCarousel();
+        setupTouchSwipe();
+      } catch (err) {
+        console.error("載入失敗", err);
+      }
+    }
+
+    // 渲染輪播
+    function renderCarousel() {
+      const featuredItems = allProducts.filter(p => p.isFeatured);
+      const section = document.getElementById("carouselSection");
+      const track = document.getElementById("carouselTrack");
+      const dotsContainer = document.getElementById("carouselDots");
+
+      if (featuredItems.length === 0) {
+        section.style.display = "none";
+        clearInterval(carouselTimer);
+        return;
+      }
+
+      section.style.display = "block";
+      if (carouselIndex >= featuredItems.length) carouselIndex = 0;
+
+      track.innerHTML = featuredItems.map((item, idx) => `
+        <div class="carousel-slide ${isPaused && idx === carouselIndex ? 'paused' : ''}" onclick="togglePause()">
+          <div class="carousel-card">
+            <span class="pause-badge">⏸️ 已暫停輪播</span>
+            <div class="card-tags">
+              <span class="tag tag-featured">🔥 急票出清</span>
+              <span class="tag">🛫 出發：${item.departure}</span>
+              <span class="tag">📍 地點：${item.location}</span>
+              <span class="tag">📅 日期：${item.dates.join(", ")}</span>
+            </div>
+            <div class="card-content">${escapeHtml(item.fullContent)}</div>
+          </div>
+        </div>
+      `).join("");
+
+      dotsContainer.innerHTML = featuredItems.map((_, i) => 
+        `<div class="dot ${i === carouselIndex ? 'active' : ''}" onclick="setCarousel(${i})"></div>`
+      ).join("");
+
+      updateCarouselPosition();
+      startCarouselTimer();
+    }
+
+    function updateCarouselPosition() {
+      const track = document.getElementById("carouselTrack");
+      if (track) track.style.transform = `translateX(-${carouselIndex * 100}%)`;
+    }
+
+    function startCarouselTimer() {
+      clearInterval(carouselTimer);
+      carouselTimer = setInterval(() => {
+        if (!isPaused) {
+          nextCarousel();
+        }
+      }, 4000);
+    }
+
+    function togglePause() {
+      isPaused = !isPaused;
+      renderCarousel();
+    }
+
+    function nextCarousel() {
+      const featuredItems = allProducts.filter(p => p.isFeatured);
+      if (featuredItems.length === 0) return;
+      carouselIndex = (carouselIndex + 1) % featuredItems.length;
+      renderCarousel();
+    }
+
+    function prevCarousel() {
+      const featuredItems = allProducts.filter(p => p.isFeatured);
+      if (featuredItems.length === 0) return;
+      carouselIndex = (carouselIndex - 1 + featuredItems.length) % featuredItems.length;
+      renderCarousel();
+    }
+
+    function setCarousel(index) {
+      carouselIndex = index;
+      renderCarousel();
+    }
+
+    // 支援手機左滑/右滑功能
+    function setupTouchSwipe() {
+      const wrapper = document.getElementById("carouselWrapper");
+      if (!wrapper) return;
+
+      wrapper.addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].screenX;
+      }, { passive: true });
+
+      wrapper.addEventListener('touchend', e => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+      }, { passive: true });
+    }
+
+    function handleSwipe() {
+      const swipeThreshold = 40;
+      if (touchEndX < touchStartX - swipeThreshold) {
+        nextCarousel();
+      }
+      if (touchEndX > touchStartX + swipeThreshold) {
+        prevCarousel();
+      }
+    }
+
+    // 自動文案解析
     function autoParseContent() {
       const rawText = document.getElementById("rawTextImport").value;
       if (!rawText.trim()) {
@@ -177,22 +444,14 @@
         return;
       }
 
-      // 1. 自動填入完整內容
       document.getElementById("addFullContent").value = rawText;
 
-      // 2. 判斷出發地 (匹配 桃園/台中/高雄/松山 等)
       const depMatch = rawText.match(/(桃園|台中|高雄|松山|台北)/);
-      if (depMatch) {
-        document.getElementById("addDeparture").value = depMatch[1];
-      }
+      if (depMatch) document.getElementById("addDeparture").value = depMatch[1];
 
-      // 3. 判斷地點 (匹配 地名)
       const locMatch = rawText.match(/(北九州|東京|石垣島|大阪|沖繩|京都|北海道|福岡|首爾|釜山)/);
-      if (locMatch) {
-        document.getElementById("addLocation").value = locMatch[1];
-      }
+      if (locMatch) document.getElementById("addLocation").value = locMatch[1];
 
-      // 4. 正規表示式提取月/日 (例如: 9/06、9/8、10/02、8/28)
       const dateRegex = /(1[0-2]|0?[1-9])\/([0-3]?[0-9])/g;
       let match;
       const parsedDates = new Set();
@@ -200,11 +459,8 @@
       while ((match = dateRegex.exec(rawText)) !== null) {
         let month = parseInt(match[1], 10);
         let day = parseInt(match[2], 10);
-
-        // 規則：月份 < 8 自動判斷為 2027 年，其餘為 2026 年
         let year = (month < 8) ? 2027 : 2026;
 
-        // 格式化為 YYYY-MM-DD
         let formattedMonth = String(month).padStart(2, '0');
         let formattedDay = String(day).padStart(2, '0');
         
@@ -220,30 +476,7 @@
       }
     }
 
-    // 解析字串中的日期陣列
-    function parseDateList(rawDateStr) {
-      if (!rawDateStr) return [];
-      return String(rawDateStr)
-        .split(/[,，\n]/)
-        .map(d => d.trim().split("T")[0])
-        .filter(Boolean);
-    }
-
-    // 載入資料
-    async function loadData() {
-      try {
-        const res = await fetch(API_URL);
-        const data = await res.json();
-        allProducts = data.map(item => ({
-          ...item,
-          dates: parseDateList(item.date)
-        }));
-      } catch (err) {
-        console.error("載入失敗", err);
-      }
-    }
-
-    // 開啟搜尋彈窗
+    // 搜尋功能 Modal
     function openSearchModal(type) {
       currentSearchType = type;
       document.getElementById("modalTitle").innerText = type === "location" ? "📍 依地點搜尋" : "📅 依日期搜尋";
@@ -258,7 +491,6 @@
       document.getElementById("searchModal").style.display = "flex";
     }
 
-    // 出發地選擇變更時，展開第二選項
     function onDepartureChange() {
       const selectedDep = document.getElementById("modalDepartureSelect").value;
       const secGroup = document.getElementById("secondaryGroup");
@@ -284,7 +516,6 @@
       secGroup.style.display = "block";
     }
 
-    // 執行搜尋
     function executeSearch() {
       const dep = document.getElementById("modalDepartureSelect").value;
       const sec = document.getElementById("modalSecondarySelect").value;
@@ -311,33 +542,64 @@
     function renderCards(list, containerId, isAdmin = false) {
       const container = document.getElementById(containerId);
       if (list.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: var(--text-muted);">查無符合條件的方案。</p>';
+        container.innerHTML = '<p style="text-align: center; color: var(--text-muted); font-size: 0.9rem;">查無符合條件的方案。</p>';
         return;
       }
 
       container.innerHTML = list.map(item => `
         <div class="card">
           <div class="card-tags">
+            ${item.isFeatured ? '<span class="tag tag-featured">🔥 輪播中</span>' : ''}
             <span class="tag">🛫 出發：${item.departure}</span>
             <span class="tag">📍 地點：${item.location}</span>
             <span class="tag">📅 日期：${item.dates.join(", ")}</span>
-            ${isAdmin ? `<button class="btn-delete" onclick="deleteProduct('${item.id}')">刪除/移除</button>` : ''}
+            
+            ${isAdmin ? `
+              <label class="admin-toggle-featured">
+                <input type="checkbox" ${item.isFeatured ? 'checked' : ''} onchange="toggleFeatured('${item.id}', this.checked)">
+                加入輪播
+              </label>
+              <button class="btn-delete" style="margin-left: 0.5rem;" onclick="deleteProduct('${item.id}')">刪除</button>
+            ` : ''}
           </div>
           <div class="card-content">${escapeHtml(item.fullContent)}</div>
         </div>
       `).join("");
     }
 
-    // 管理員驗證
+    // 後台即時勾選/取消勾選輪播
+    async function toggleFeatured(id, isFeatured) {
+      try {
+        await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "toggleFeatured", id: id, isFeatured: isFeatured })
+        });
+        const product = allProducts.find(p => p.id === id);
+        if (product) product.isFeatured = isFeatured;
+        renderCarousel();
+        renderCards(allProducts, "adminCardsContainer", true);
+      } catch (err) {
+        alert("更新輪播狀態失敗：" + err);
+      }
+    }
+
+    // 後台登入/對焦
     function openAdminAuth() { document.getElementById("adminAuthModal").style.display = "flex"; }
     function verifyAdmin() {
       const pwd = document.getElementById("adminPassword").value;
-      if (pwd === "5666") { 
+      if (pwd === "55688") {
         closeModal("adminAuthModal");
         document.getElementById("adminPanel").style.display = "block";
         document.getElementById("adminPassword").value = "";
         renderCards(allProducts, "adminCardsContainer", true);
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        
+        setTimeout(() => {
+          const extractArea = document.getElementById("extractBoxArea");
+          const rawTextImport = document.getElementById("rawTextImport");
+          extractArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          rawTextImport.focus();
+        }, 300);
+
       } else {
         alert("密碼錯誤！");
       }
@@ -352,12 +614,15 @@
       submitBtn.disabled = true;
       submitBtn.innerText = "匯入中...";
 
+      const isFeaturedChecked = document.getElementById("addIsFeatured").checked;
+
       const payload = {
         id: new Date().getTime().toString(),
         location: document.getElementById("addLocation").value,
         departure: document.getElementById("addDeparture").value,
         date: document.getElementById("addDate").value,
         fullContent: document.getElementById("addFullContent").value,
+        isFeatured: isFeaturedChecked,
         status: "active"
       };
 
@@ -377,7 +642,6 @@
       }
     });
 
-    // 刪除方案
     async function deleteProduct(id) {
       if (!confirm("確定要移除此方案嗎？")) return;
       try {
